@@ -89,10 +89,10 @@ def test_stripped_code(hello):
 
 def test_source_renderer():
     tree = markio.Markio(
-            title='foo',
-            author='bar',
-            timeout=1,
-            description='description',
+        title='foo',
+        author='bar',
+        timeout=1,
+        description='description',
     )
 
     assert '===' in tree.source()

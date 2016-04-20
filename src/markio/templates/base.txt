@@ -57,14 +57,17 @@ Tests
 Answer Key (c)
 --------------
 
-    main() {
+    int main() {
         // reference solution (C)
+        printf("Hello World\n!");
+        return 0;
     }
 
 Answer Key (python)
 --------------------
 
     # Reference solution in Python 3
+    print('Hello World!')
 
 
 TLE Solution (c)
@@ -76,7 +79,7 @@ TLE Solution (c)
         // will be set as the runtime of the TLE solution.
         //
         // This section is optional and overrides any given timeout parameter
-        // defined after the quetion title.
+        // defined after the question title.
     }
 
 

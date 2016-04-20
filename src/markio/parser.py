@@ -13,7 +13,8 @@ blocklexer = mistune.BlockLexer()
 
 
 def parse(file, extra=None):
-    """Parse the given markio file.
+    """
+    Parse the given markio file.
 
     If it is a real file in the filesystem, the parser will look for
     supplementary data in adjacent files such as answer keys, lang files, etc.
@@ -36,7 +37,12 @@ def parse(file, extra=None):
     return parse_string(file.read(), {})
 
 
-def parse_string(text, extra={}):
+def parse_string(text, extra=None):
+    """
+    Like the parse(file) function, but expects a string of text rather than
+    a file object or the path to a file.
+    """
+
     # Process mistune parse tree and create an hierarchical DOM-like dictionary
     # in which section names are keys and section contents are values.
     def DOM(tree):
@@ -192,7 +198,8 @@ def parse_string(text, extra={}):
 
 
 def parse_tags(tags):
-    """Parse a string full of tags.
+    """
+    Parse a string full of tags.
 
     Example
     -------
