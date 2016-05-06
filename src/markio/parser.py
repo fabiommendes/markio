@@ -126,9 +126,6 @@ def parse_string(text, extra=None):
 
     # Extract answer keys
     def get_code_block(k, x):
-        if len(x) != 1:
-            raise SyntaxError('expect to find a single block of code at answer '
-                              'key %s' % k)
         return x[0]['text'].strip()
 
     if None in body.get('answer key', {}):
@@ -190,9 +187,9 @@ def parse_string(text, extra=None):
         lang = normalize_language(lang)
         markio[lang].placeholder = item.strip()
 
-    # Assure there is no invalid sections
+    # Ignore extra sections
     if body:
-        raise SyntaxError('invalid section: %s' % next(iter(body)))
+        pass
 
     return markio
 
