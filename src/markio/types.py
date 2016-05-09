@@ -1,8 +1,62 @@
+import io
 import copy
 import pprint
+import collections
+__all__ = ['pdict', 'Markio']
+
+
+class pdict(collections.MutableMapping):
+    """
+    A dictionary that can look for data in a parent mapping.
+    """
+
+    def __init__(self, parent, *args, **kwds):
+        self._data = dict(*args, **kwds)
+        self._parent = parent
+
+    def __getitem__(self, key):
+        try:
+            return self._data[key]
+        except KeyError:
+            return self._parent[key]
+
+    def __setitem__(self, key, value):
+        self._data[key] = value
+
+    def __delitem__(self, key):
+        try:
+            del self._data[key]
+        except KeyError:
+            if key not in self._parent:
+                raise
+
+    def __len__(self):
+        return sum(1 for _ in self)
+
+    def __iter__(self):
+        used = set()
+        for k in self._data:
+            used.add(k)
+            yield k
+        for k in self._parent:
+            if k not in used:
+                used.add(k)
+                yield k
+
+    def __str__(self):
+        return str(dict(self))
+
+    def owned(self):
+        """Return a dictionary with a copy of all data that is owned by the
+        default dict."""
+
+        return dict(self._data)
 
 
 class Markio:
+    """
+    Base node for the Markio AST.
+    """
     class __Literal(str):
         """A string-like object whose repr() is equal to str()"""
 
@@ -17,27 +71,30 @@ class Markio:
         'description', 'example', 'tests',
     }
 
-    def __init__(self, **kwds):
-        parent = kwds['parent'] = kwds.pop('parent', None)
+    def __init__(self, title=None, **kwds):
+        parent = kwds.pop('parent', None)
         if parent is None:
             kwds['tags'] = dict(kwds.pop('tags', []))
         else:
             if 'tags' in kwds:
                 kwds['tags'] = list(kwds['tags'])
 
+        self.title = title
         self.__dict__.update(kwds)
         self.answer_key = {}
         self.placeholder = {None: None}
         self.translations = {}
+        self.meta = {}
+        self._parent =  parent
 
     def __getattr__(self, attr):
         if attr not in self._valid_attrs:
             raise AttributeError(attr)
 
-        if self.parent is None:
+        if self._parent is None:
             return None
         else:
-            return getattr(self.parent, attr)
+            return getattr(self._parent, attr)
 
     def __getitem__(self, key):
         if key is None:
@@ -46,6 +103,9 @@ class Markio:
             return self.translations[key]
         except KeyError:
             self.translations[key] = out = Markio(parent=self)
+            out.answer_key = pdict(self.answer_key)
+            out.placeholder = pdict(self.placeholder)
+            out.meta = pdict(self.meta)
             return out
 
     def __contains__(self, lang):
@@ -53,6 +113,12 @@ class Markio:
 
     def __iter__(self):
         return iter(self.translations)
+
+    def add_meta(self, section, key, value):
+        """Adds a key of meta information in the given section."""
+
+        section = self.meta.setdefault(section, {})
+        section[key] = value
 
     def add_answer_key(self, source, lang):
         """Adds a new answer key source for a given programming language
@@ -70,8 +136,20 @@ class Markio:
         else:
             self[i18n].add_placeholder(source, lang)
 
-    def iter_translations(self):
-        """Iterate over all pairs of (lang, markio)."""
+    def iter_translations(self, flatten=False, yield_root=True):
+        """Iterate over all pairs of (lang, ast).
+
+        `lang` is a string with a language code (e.g: ``"pt_BR"``) and the ast
+        is a markio structure to that given language.
+
+        If some field is not present in a translation, it will use the value
+        defined in the parent structure. The translation hierarchy can be more
+        than one level deep, in order to accommodate sub-translations like 'pt'
+        and 'pt_BR'. If flatten is `True`, it will flatten the translation tree.
+
+        By default, the first pair is always (None, self), unless
+        ``yield_root=False``.
+        """
 
         yield (None, self)
         for lang, tree in sorted(self.translations.items()):
@@ -169,46 +247,47 @@ class Markio:
         return '\n'.join(lines)
 
     def pprint(self, file=None, **kwds):
-        """Pretty print Markio structure."""
+        """Pretty print Markio structure.
+
+        See pformat() if you want the corresponding string representation."""
 
         data = pprint.pformat(self._json(), **kwds)
         print(data, file=file)
+
+    def pformat(self, **kwds):
+        """Return a pretty-print representation of the markio structure."""
+
+        file = io.StringIO()
+        self.pprint(file=file, **kwds)
+        return file.getvalue()
 
     def _json(self):
         """JSON-like expansion of the AST.
 
         All linear node instances are expanded into dictionaries."""
 
-        D = {(k[1:] if k.startswith('_') else k): v
-             for (k, v) in vars(self).items()}
+        json = copy.deepcopy(dict(self.__dict__))
+        del json['_parent']
 
-        memo = dict()
+        # Use real dicts even in children
+        for k, v in json.items():
+            if isinstance(v, pdict):
+                json[k] = v.owned()
 
-        def json(x):
-            obj_id = id(x)
+        # Filter null values
+        json = {k: v for (k, v) in json.items() if v}
 
-            if obj_id in memo and memo[obj_id] > 5:
-                if isinstance(x, list):
-                    return self.__Literal('[...]')
-                elif isinstance(x, (set, dict)):
-                    return self.__Literal('{...}')
+        if json['placeholder'].get(None, 0) is None:
+            del json['placeholder'][None]
 
-            if hasattr(type(x), '__contains__'):
-                memo[obj_id] = memo.get(obj_id, 0) + 1
+        if 'translations' in json:
+            translations = json['translations']
+            json['translations'] = {k: v._json() for (k, v) in translations.items()}
 
-            if isinstance(x, (list, tuple)):
-                return [json(y) for y in x]
-            elif isinstance(x, Markio):
-                return x._json()
-            elif isinstance(x, dict):
-                return {k: json(v) for (k, v) in x.items()}
-            else:
-                return x
-
-        return {k: json(v) for (k, v) in D.items()}
+        return json
 
     def copy(self):
-        """Return a deep copy."""
+        """Return a deep copy of itself."""
 
         return copy.deepcopy(self)
 
@@ -217,3 +296,8 @@ def indent(txt):
     """Indent text with 4 spaces."""
 
     return '\n'.join(('    ' + x if x else '') for x in txt.splitlines())
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()

@@ -1,6 +1,6 @@
 The ``.markio`` format is a markdown-based format for representing IO based
 programming questions. This library consists in a parser and a processor for
-the format. It does not judge submissions by executing programming tasks and
+this format. It does not judge submissions by executing programming tasks and
 comparing inputs/outputs but it provides some data structures that makes the
 implementation of such a program much easier.
 

@@ -4,10 +4,11 @@ import re
 import configparser
 import mistune
 from markio.types import Markio
+from markio.translations import Translation, get_translation
 from markio.constants import (PROGRAMMING_LANGUAGES_CODES,
                               COUNTRY_CODES, LANGUAGE_CODES)
 
-
+__all__ = ['parse', 'parse_string']
 markdown = mistune.Markdown(escape=True)
 blocklexer = mistune.BlockLexer()
 
@@ -19,14 +20,12 @@ def parse(file, extra=None):
     If it is a real file in the filesystem, the parser will look for
     supplementary data in adjacent files such as answer keys, lang files, etc.
 
-    Parameters
-    ----------
-
-    file:
-        A string with a path to a markio file or a file object.
-    extra:
-        A dictionary mapping fragment paths to files (or file paths) that hold
-        that data.
+    Args:
+        file:
+            A string with a path to a markio file or a file object.
+        extra:
+            A dictionary mapping fragment paths to files (or file paths) that
+            hold that data.
 
     """
 
@@ -39,195 +38,12 @@ def parse(file, extra=None):
 
 def parse_string(text, extra=None):
     """
-    Like the parse(file) function, but expects a string of text rather than
-    a file object or the path to a file.
+    Like the :func:`markio.parse` function, but expects a string of text rather
+    than a file object or the path to a file.
     """
 
-    # Process mistune parse tree and create an hierarchical DOM-like dictionary
-    # in which section names are keys and section contents are values.
-    def DOM(tree):
-        current = []
-        root = OrderedDict({None: current})
-        levels = [D['level'] for D in tree if D['type'] == 'heading']
-        if levels:
-            level = min(levels)
-        else:
-            return tree
-
-        for node in tree:
-            if node['type'] == 'heading' and node['level'] == level:
-                root[node['text']] = current = []
-            else:
-                current.append(node)
-
-        return {k: DOM(v) for (k, v) in root.items()}
-
-    mistune_tree = blocklexer(text)
-    dom = DOM(mistune_tree)
-    del dom[None]
-
-    # Verify if it starts with h1-level heading
-    first_node = mistune_tree[0]
-    if not(first_node['type'] == 'heading' and first_node['level'] == 1):
-        raise SyntaxError('Document should start with a H1-level heading')
-    if len(dom) != 1:
-        raise SyntaxError('Only one H1-level title is allowed for the whole '
-                          'document')
-
-    # Create return node
-    title, body = dom.popitem()
-    markio = Markio(title=title)
-
-    # Process metadata block
-    block = body.pop(None, [])
-    if block and block[0]['type'] == 'code':
-        meta = block.pop(0)['text']
-        cfg = configparser.ConfigParser()
-        cfg.read_string('[DEFAULT]\n' + meta)
-        cfg = {k: dict(v) for (k, v) in cfg.items()}
-        default = cfg.pop('DEFAULT')
-
-        # Get default parameters and process them
-        for attr in ['author', 'slug', 'timeout']:
-            setattr(markio, attr, default.pop(attr, None))
-        if markio.timeout is not None:
-            markio.timeout = parse_time(markio.timeout)
-        markio.tags = parse_tags(default.pop('tags', ''))
-        markio.meta = cfg
-
-        if default:
-            key = next(iter(default))
-            raise SyntaxError('invalid meta information: %r' % key)
-
-    # Check if short description is available
-    if len(block) == 1:
-        markio.short_description = block[0]['text']
-    elif len(block) > 1:
-        raise SyntaxError('expect a single paragraph after metadata section')
-
-    # Combine keys and extract description information
-    body = combine_keys(body, lambda x: x.lower())
-
-    def get_description(descr):
-        return '\n\n'.join(block['text'] for block in descr)
-
-    descriptions = body.pop('description', {})
-    markio.description = get_description(descriptions.get(None, []))
-    for lang, descr in descriptions.items():
-        lang = normalize_language(lang)
-        markio[lang].description = get_description(descr).strip()
-
-    # Extract tests
-    tests = body.pop('tests', {})
-    markio.tests = tests.pop(None, [{'text': ''}])[0]['text'].strip()
-    if tests:
-        raise ValueError('invalid test subsession: Tests (%s)' %
-                         next(iter(tests)))
-
-    # Extract answer keys
-    def get_code_block(k, x):
-        return x[0]['text'].strip()
-
-    if None in body.get('answer key', {}):
-        raise SyntaxError('must provide language for Answer Key')
-
-    markio.answer_key = {
-        normalize_computer_language(k): get_code_block(k, v)
-            for (k, v) in body.pop('answer key', {}).items()
-    }
-
-    # Extract all examples
-    examples = body.pop('example', {})
-    markio.example = examples.get(None, [{'text': None}])[0]['text']
-    if markio.example:
-        markio.example = markio.example.strip()
-    for lang, item in examples.items():
-        lang = normalize_language(lang)
-        markio[lang].example = item[0]['text'].strip()
-
-    # Extract placeholder information
-    placeholders = body.pop('placeholder', {})
-    by_i18n = {None: {}}
-    for k, v in placeholders.items():
-        source = v[0]['text'].strip()
-
-        if k is None:
-            D = by_i18n[None]
-            D[None] = source
-        else:
-            # Specify both programming language and i18n
-            if ',' in k:
-                raise NotImplementedError('placeholder: %s' % k)
-
-            else:
-                match = country_code_re.match(k)
-
-                # It is a lang/country code
-                if match:
-                    lang, country = match.groups()
-                    if lang not in LANGUAGE_CODES:
-                        warnings.warn("unsupported language code: %r" % lang)
-                    if country not in COUNTRY_CODES:
-                        warnings.warn("unsupported country code: %r" % country)
-
-                    k = '%s-%s' % (lang, country.upper())
-                    D = by_i18n.setdefault(k, {})
-                    D[None] = source
-
-                # It is a programming language
-                else:
-                    if k not in PROGRAMMING_LANGUAGES_CODES:
-                        warnings.warn("unknown programming language: %r" % k)
-                    D = by_i18n[None]
-
-                    D[k] = source
-
-    markio.placeholder = by_i18n.pop(None)
-    for lang, item in by_i18n.items():
-        lang = normalize_language(lang)
-        markio[lang].placeholder = item.strip()
-
-    # Ignore extra sections
-    if body:
-        pass
-
-    return markio
-
-
-def parse_tags(tags):
-    """
-    Parse a string full of tags.
-
-    Example
-    -------
-
-    >>> parse_tags('#foo #bar #MyFooBarTag')
-    ['foo', 'bar', 'MyFooBarTag']
-    """
-    tags = tags.split()
-    if not all(tag.startswith('#') for tag in tags):
-        raise SyntaxError('tags must start with an "#"')
-    return [tag[1:] for tag in tags]
-
-
-def parse_time(st):
-    """Parse a string that represents a time interval (e.g.: st = '1s') and
-    return a float value representing this duration in seconds."""
-
-    st = st.replace(' ', '').lower()
-    try:
-        return float(st)
-    except ValueError:
-        pass
-
-    for ending, mul in [('second', 1), ('seconds', 1), ('sec', 1), ('s', 1),
-                        ('minute', 60), ('minutes', 60), ('min', 60), ('m', 60)]:
-        if st.endswith(ending):
-            try:
-                return float(st[:-len(ending)]) * mul
-            except ValueError:
-                break
-    raise ValueError('invalid duration: %r' % st)
+    parser = Parser(text)
+    return parser.parse()
 
 
 def combine_keys(D, keytrans=lambda x: x, dict=dict):
@@ -262,10 +78,22 @@ def combine_keys(D, keytrans=lambda x: x, dict=dict):
     return out
 
 
-def normalize_language(x):
-    """Normalize accepted lang codes to ISO format."""
+def collect_translations(languages):
+    """
+    Return a dictionary mapping translated session names to their corresponding
+    normalized sessions for all languages on the list.
+    """
 
-    return x
+
+#TODO: implement this!
+def normalize_i18n(x):
+    """Normalize accepted lang codes to ISO format.
+
+    Also check if language codes are valid."""
+
+    if x is None:
+        return None
+    return x.replace('-', '_')
 
 
 def normalize_computer_language(x):
@@ -275,8 +103,332 @@ def normalize_computer_language(x):
     return PROGRAMMING_LANGUAGES_CODES.get(x, x)
 
 
+class Parser:
+    """
+    Represents a parsing job and is a function namespace.
+
+    This class should not be used directly: please use the parse() and
+    parse_string() functions.
+    """
+    def __init__(self, data):
+        self.data = data
+        self.markio = Markio()
+        self.body = self.init_body()
+        self.i18n = None
+        self.trans = Translation('en')
+
+    def parse(self):
+        """
+        Main entry point for the parsing job.
+        """
+
+        # Parse header
+        self.parse_metadata()
+        self.parse_short_description()
+
+        # Combine sections with different i18n/programming language combinations
+        # From this point we parse each section and include its contents in the
+        # markio file
+        self.sections = combine_keys(self.body, lambda x: x.lower())
+        if self.i18n:
+            to_english = self.trans.en
+            items = self.sections.items()
+            self.sections = {to_english(k): v for (k, v) in items}
+
+        # Parse each section of the document
+        self.parse_description()
+        self.parse_tests()
+        self.parse_answer_keys()
+        self.parse_examples()
+        self.parse_placeholders()
+
+        if self.sections:
+            # What should we do with additional sections? Probably we should
+            # either issue an error or save them in some attribute of the markio
+            # source. For now let us just ignore this problem.
+            pass
+        return self.markio
+
+    def parse_metadata(self):
+        """
+        Process metadata block and save results in the markio object.
+        """
+
+        markio = self.markio
+
+        # Meta-data is in an .ini block just under the main title.
+        block = self.body.get(None, [])
+
+        if block and block[0]['type'] == 'code':
+            cfg = configparser.ConfigParser()
+
+            # Before reading, we prepend data with the [DEFAULT] section that
+            # is implicit in this block of data
+            ini_data = block.pop(0)['text']
+            ini_data = '[DEFAULT]\n' + ini_data
+            cfg.read_string(ini_data)
+
+            # Now we extract default data from this dictionary.
+            cfg = {k: dict(v) for (k, v) in cfg.items()}
+            default = cfg.pop('DEFAULT')
+
+            # We check if internationalization is defined in the source file in
+            # order to enable translation of strings
+            if 'i18n' in cfg:
+                self.trans = get_translation(cfg['i18n'])
+                self.i18n = self.trans.lang
+                to_english = self.trans.en
+
+            # We convert all keys to english and translate simple keys
+            cfg = {to_english(k): v for (k, v) in cfg}
+            for key in ['author', 'slug']:
+                value = default.pop(key, None)
+                setattr(markio, key, value)
+
+            # Some parameters require explicit parsing
+            if 'timeout' in default:
+                markio.timeout = self.parse_time(default.pop('timeout'))
+            markio.tags = self.parse_tags(default.pop('tags', ''))
+
+            # We prevent erroneous/invalid attributes in the default section
+            if default:
+                self.error(
+                    'Invalid metadata attribute name in the DEFAULT section: %r'
+                    % default.popitem()[0]
+                )
+
+            # The remaining sections are appended to a meta attribute. The user
+            # can define any section she wants with any number of attributes.
+            if cfg:
+                markio.meta = cfg
+
+            if default:
+                key = next(iter(default))
+                self.error('Invalid meta information: %r' % key)
+
+    def parse_short_description(self):
+        """
+        Check if short description is available.
+        """
+
+        block = self.body.pop(None, [])
+        if len(block) == 1:
+            self.markio.short_description = block[0]['text']
+        elif len(block) > 1:
+            self.error(
+                'Expects a single paragraph after metadata section'
+            )
+
+    def parse_tags(self, tags):
+        """
+        Parse a string and return the corresponding list of tags.
+        """
+        tags = tags.split()
+        if not all(tag.startswith('#') for tag in tags):
+            self.error('tags must start with an "#"')
+        return [tag[1:] for tag in tags]
+
+    def parse_time(self, st):
+        """
+        Parse a string that represents a time interval (e.g.: st = '1s') and
+        return a float value representing this duration in seconds.
+        """
+
+        st = st.replace(' ', '').lower()
+        try:
+            return float(st)
+        except ValueError:
+            pass
+
+        for ending, mul in [('second', 1), ('seconds', 1), ('sec', 1), ('s', 1),
+                            ('minute', 60), ('minutes', 60), ('min', 60),
+                            ('m', 60)]:
+            if st.endswith(ending):
+                try:
+                    return float(st[:-len(ending)]) * mul
+                except ValueError:
+                    break
+        self.error('invalid duration: %r' % st)
+
+    def parse_description(self):
+        """
+        Parse the description section of the file.
+
+        Search for internationalization.
+        """
+
+        def get_description(descr):
+            return '\n\n'.join(block['text'] for block in descr)
+
+        descriptions = self.sections.pop('description', {})
+        self.markio.description = get_description(descriptions.get(None, []))
+        for lang, descr in descriptions.items():
+            lang = normalize_i18n(lang)
+            self.markio[lang].description = get_description(descr).strip()
+
+    def parse_tests(self):
+        """Extract all test cases in iospec format.
+
+        The "tests" section do not accept any translation or programming
+        language specific data."""
+
+        tests = self.sections.pop('tests', {})
+        self.markio.tests = tests.pop(None, [{'text': ''}])[0]['text'].strip()
+        if tests:
+            test = next(iter(tests))
+            self.error('invalid test subsection: Tests (%s)' % test)
+
+    def parse_answer_keys(self):
+        """Parse all answer key sections in the file.
+
+        Answer keys do not accept internationalization, but require the
+        specification of a programming language.
+        """
+
+        def get_code_block(k, x):
+            return x[0]['text'].strip()
+
+        if None in self.sections.get('answer key', {}):
+            self.error('Must provide language for Answer Key')
+
+        self.markio.answer_key.update({
+            normalize_computer_language(k): get_code_block(k, v)
+                for (k, v) in self.sections.pop('answer key', {}).items()
+        })
+
+    def parse_examples(self):
+        """Parse the example section
+
+        Example sections accept internationalization, but cannot be associated
+        to programming languages."""
+
+        markio = self.markio
+        examples = self.sections.pop('example', {})
+        markio.example = examples.get(None, [{'text': None}])[0]['text']
+        if markio.example:
+            markio.example = markio.example.strip()
+        for lang, item in examples.items():
+            lang = normalize_i18n(lang)
+            markio[lang].example = item[0]['text'].strip()
+
+    def parse_placeholders(self):
+        """Extract all placeholder sections in file.
+
+        Placeholders accept internationalization and can be associated to a
+        programming language.
+        """
+        markio = self.markio
+
+        # Extract placeholder information
+        placeholders = self.sections.pop('placeholder', {})
+        by_i18n = {None: {}}
+        for k, v in placeholders.items():
+            source = v[0]['text'].strip()
+
+            if k is None:
+                D = by_i18n[None]
+                D[None] = source
+            else:
+                # Specify both programming language and i18n
+                if ',' in k:
+                    raise NotImplementedError('placeholder: %s' % k)
+
+                else:
+                    match = country_code_re.match(k)
+
+                    # It is a lang/country code
+                    if match and 0:
+                        lang, country = match.groups()
+                        if lang not in LANGUAGE_CODES:
+                            warnings.warn("unsupported language code: %r" % lang)
+                        if country not in COUNTRY_CODES:
+                            warnings.warn("unsupported country code: %r" % country)
+
+                        k = '%s-%s' % (lang, country.upper())
+                        D = by_i18n.setdefault(k, {})
+                        D[None] = source
+
+                    # It is a programming language
+                    else:
+                        if k not in PROGRAMMING_LANGUAGES_CODES:
+                            warnings.warn("unknown programming language: %r" % k)
+                        D = by_i18n[None]
+                        D[k] = source
+
+        markio.placeholder = by_i18n.pop(None)
+        for lang, item in by_i18n.items():
+            lang = normalize_i18n(lang)
+            markio[lang].placeholder = item.strip()
+
+    def init_body(self):
+        """
+        Process mistune parse tree and make the dom node with a DOM-like
+        hierarchy of sections in a tree structure. The title is saved in the
+        markio object.
+
+        The returned object is a dictionary of H2-level titles to their
+        corresponding sub-ast's.
+        """
+        
+        mistune_ast = blocklexer(self.data)
+        dom = self.make_dom(mistune_ast)
+        del dom[None]
+
+        # Verify if it starts with h1-level heading
+        first_node = mistune_ast[0]
+        if not(first_node['type'] == 'heading' and first_node['level'] == 1):
+            self.error(
+                'Document should start with a H1-level heading.'
+            )
+        if len(dom) != 1:
+            self.error(
+                'Only one H1-level title is allowed in the document.'
+            )
+
+        # Create return node
+        title, dom = dom.popitem()
+        self.markio.title = title
+        return dom
+
+    def make_dom(self, tree):
+        """
+        Process mistune parse tree and create an hierarchical DOM-like
+        dictionary in which section names are keys and section contents are
+        values.
+        """
+
+        current = []
+        root = OrderedDict({None: current})
+        levels = [D['level'] for D in tree if D['type'] == 'heading']
+        if levels:
+            level = min(levels)
+        else:
+            return tree
+
+        for node in tree:
+            if node['type'] == 'heading' and node['level'] == level:
+                root[node['text']] = current = []
+            else:
+                current.append(node)
+
+        return {k: self.make_dom(v) for (k, v) in root.items()}
+
+    def error(self, msg):
+        """Executed with an error message when syntax errors are found."""
+
+        raise MarkioSyntaxError(msg)
+
 #
 # Re matches
 #
 country_code_re = re.compile(
-    r'^\w*([a-zA-Z][a-zA-Z])(-|_)([a-zA-Z][a-zA-Z])?\w*$')
+    r'^\w*(?P<i18n>([a-zA-Z][a-zA-Z])((?:-|_)(:?[a-zA-Z][a-zA-Z]))?)\w*$')
+parenthesis_re = re.compile(r'.*[(](.*)[)]\w*')
+
+
+#
+# Errors
+#
+class MarkioSyntaxError(SyntaxError):
+    """Exception raised when syntax errors are found during parsing of a
+    Markio source."""

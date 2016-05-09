@@ -29,7 +29,8 @@ setup(
     author=author,
     author_email='fabiomacedomendes@gmail.com',
     url='',
-    description='A short description for your project.',
+    description='Defines a format for representing I/O based programming '
+                'questions and implements a parser for it.',
     long_description=open('README.rst').read(),
 
     # Classifiers (see https://pypi.python.org/pypi?%3Aaction=list_classifiers)
@@ -45,7 +46,7 @@ setup(
     # Packages and depencies
     package_dir={'': 'src'},
     packages=find_packages('src'),
-    install_requires=[],
+    install_requires=['mistune'],
     extras_require={
         'testing': ['pytest'],
     },

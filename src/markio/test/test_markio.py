@@ -16,7 +16,6 @@ def hello():
 def test_pprint(hello):
     F = io.StringIO()
     hello.pprint(file=F)
-    hello.pprint()
     st = r"""
 {'answer_key': {'c': '#include<stdio.h>\n'
                      '\n'
@@ -44,8 +43,6 @@ def test_pprint(hello):
                 'name is at\n'
                 'most 100 characters long.',
  'example': 'What is your name? <John>\nHello John!',
- 'meta': {},
- 'parent': None,
  'placeholder': {None: 'Type here your response.',
                  'python3': '# Type here your response. Remember to use the '
                             'print() and input()\n'
@@ -66,8 +63,7 @@ def test_pprint(hello):
           '@input\n'
           '    $string[<100]',
  'timeout': 1.0,
- 'title': 'Hello Person',
- 'translations': {}}"""
+ 'title': 'Hello Person'}"""
     assert F.getvalue().strip() == st.strip()
 
 
