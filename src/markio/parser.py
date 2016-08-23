@@ -9,11 +9,17 @@ from markio.constants import (PROGRAMMING_LANGUAGES_CODES,
                               COUNTRY_CODES, LANGUAGE_CODES)
 
 __all__ = ['parse', 'parse_string']
-markdown = mistune.Markdown(escape=True)
-blocklexer = mistune.BlockLexer()
 
 
-def parse(file, extra=None):
+def mistune_parse(source):
+    """
+    Use mistune to parse given source string.
+    """
+
+    return mistune.BlockLexer()(source)
+
+
+def parse(file, extra=None, encoding=None):
     """
     Parse the given markio file.
 
@@ -30,10 +36,13 @@ def parse(file, extra=None):
     """
 
     if isinstance(file, str):
-        with open(file) as F:
+        with open(file, encoding=encoding) as F:
             return parse_string(F.read(), {})
 
-    return parse_string(file.read(), {})
+    data = file.read()
+    if isinstance(data, bytes):
+        data = data.decode(encoding or 'utf8')
+    return parse_string(data, {})
 
 
 def parse_string(text, extra=None):
@@ -46,8 +55,9 @@ def parse_string(text, extra=None):
     return parser.parse()
 
 
-def combine_keys(D, keytrans=lambda x: x, dict=dict):
-    """Combine keys in a dictionary so section like 'foo (bar)' and 'foo (baz)'
+def combine_keys(D, keytrans=lambda x: x, dict_class=OrderedDict):
+    """
+    Combine keys in a dictionary so section like 'foo (bar)' and 'foo (baz)'
     are merged into foo: {'bar': ..., 'baz': ...}.
 
     Parameters
@@ -62,7 +72,7 @@ def combine_keys(D, keytrans=lambda x: x, dict=dict):
         if the user wants to return merged OrderedDict's rather than regular
         dictionaries.
     """
-    out = {}
+    out = dict_class()
     for (k, v) in D.items():
         k = k.strip()
         pre, sep, tail = k.partition('(')
@@ -73,19 +83,34 @@ def combine_keys(D, keytrans=lambda x: x, dict=dict):
             part = tail[:-1].strip()
         else:
             part = None
-        dic = out.setdefault(keytrans(k), dict())
+        dic = out.setdefault(keytrans(k), dict_class())
         dic[None if part is None else keytrans(part)] = v
     return out
 
 
-def collect_translations(languages):
+def dom_flatten(dom_node, level=3):
     """
-    Return a dictionary mapping translated session names to their corresponding
-    normalized sessions for all languages on the list.
+    Flatten dom node into a markdown source.
     """
 
+    if isinstance(dom_node, list):
+        data = []
+        for node in dom_node:
+            if node['type'] == 'code':
+                code = '\n'.join('    ' + x for x in node['text'].splitlines())
+                data.append(code)
+            else:
+                data.append(node['text'])
+        return '\n\n'.join(data)
+    else:
+        data = []
+        for title, content in dom_node.items():
+            if title is not None:
+                data.append('#' * level + ' ' + title)
+            data.append(dom_flatten(content, level=level + 1))
+        return '\n\n'.join(data)
 
-#TODO: implement this!
+
 def normalize_i18n(x):
     """Normalize accepted lang codes to ISO format.
 
@@ -257,14 +282,11 @@ class Parser:
         Search for internationalization.
         """
 
-        def get_description(descr):
-            return '\n\n'.join(block['text'] for block in descr)
-
         descriptions = self.sections.pop('description', {})
-        self.markio.description = get_description(descriptions.get(None, []))
+        self.markio.description = dom_flatten(descriptions.get(None, []))
         for lang, descr in descriptions.items():
             lang = normalize_i18n(lang)
-            self.markio[lang].description = get_description(descr).strip()
+            self.markio[lang].description = dom_flatten(descr)
 
     def parse_tests(self):
         """Extract all test cases in iospec format.
@@ -370,7 +392,7 @@ class Parser:
         corresponding sub-ast's.
         """
         
-        mistune_ast = blocklexer(self.data)
+        mistune_ast = mistune_parse(self.data)
         dom = self.make_dom(mistune_ast)
         del dom[None]
 
@@ -381,6 +403,11 @@ class Parser:
                 'Document should start with a H1-level heading.'
             )
         if len(dom) != 1:
+            from pprint import pprint
+            print(self.data)
+            pprint(mistune_ast)
+            pprint(dom.keys())
+            pprint(dom)
             self.error(
                 'Only one H1-level title is allowed in the document.'
             )
@@ -411,10 +438,12 @@ class Parser:
             else:
                 current.append(node)
 
-        return {k: self.make_dom(v) for (k, v) in root.items()}
+        return OrderedDict([(k, self.make_dom(v)) for (k, v) in root.items()])
 
     def error(self, msg):
-        """Executed with an error message when syntax errors are found."""
+        """
+        Executed with an error message when syntax errors are found.
+        """
 
         raise MarkioSyntaxError(msg)
 

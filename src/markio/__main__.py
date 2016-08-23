@@ -9,6 +9,12 @@ parser.add_argument(
     action='store_true',
     help='validate input file'
 )
+parser.add_argument(
+    '--debug', '-d',
+    action='store_true',
+    help='enable debugging mode'
+)
+
 parser.add_argument('input', help='input Markio file')
 
 
@@ -16,10 +22,11 @@ def main(args=None):
     args = parser.parse_args(args)
 
     try:
-        source = markio.parse(args.input)
+        ast = markio.parse(args.input)
     except SyntaxError as ex:
+        if args.debug:
+            raise
         print('Error: ' + str(ex))
-        print('Your file is invalid!')
         raise SystemExit(not bool(args.validate))
 
     if args.validate:

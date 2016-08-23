@@ -140,7 +140,7 @@
         <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s1">&#39;expect a single paragraph after metadata section&#39;</span><span class="p">)</span>
 
     <span class="c1"># Combine keys and extract description information</span>
-    <span class="n">body</span> <span class="o">=</span> <span class="n">combine_keys</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="n">combine_keys</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">self</span><span class="p">:</span> <span class="n">self</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
 
     <span class="k">def</span> <span class="nf">get_description</span><span class="p">(</span><span class="n">descr</span><span class="p">):</span>
         <span class="k">return</span> <span class="s1">&#39;</span><span class="se">\n\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">block</span><span class="p">[</span><span class="s1">&#39;text&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">block</span> <span class="ow">in</span> <span class="n">descr</span><span class="p">)</span>
@@ -159,11 +159,11 @@
                          <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">tests</span><span class="p">)))</span>
 
     <span class="c1"># Extract answer keys</span>
-    <span class="k">def</span> <span class="nf">get_code_block</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">get_code_block</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">self</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s1">&#39;expect to find a single block of code at answer &#39;</span>
                               <span class="s1">&#39;key </span><span class="si">%s</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">k</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;text&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">self</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;text&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
 
     <span class="k">if</span> <span class="bp">None</span> <span class="ow">in</span> <span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;answer key&#39;</span><span class="p">,</span> <span class="p">{}):</span>
         <span class="k">raise</span> <span class="ne">SyntaxError</span><span class="p">(</span><span class="s1">&#39;must provide language for Answer Key&#39;</span><span class="p">)</span>
@@ -266,7 +266,7 @@
     <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;invalid duration: </span><span class="si">%r</span><span class="s1">&#39;</span> <span class="o">%</span> <span class="n">st</span><span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">combine_keys</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">keytrans</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="nb">dict</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">combine_keys</span><span class="p">(</span><span class="n">D</span><span class="p">,</span> <span class="n">keytrans</span><span class="o">=</span><span class="k">lambda</span> <span class="n">self</span><span class="p">:</span> <span class="n">self</span><span class="p">,</span> <span class="nb">dict</span><span class="o">=</span><span class="nb">dict</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Combine keys in a dictionary so section like &#39;foo (bar)&#39; and &#39;foo (baz)&#39;</span>
 <span class="sd">    are merged into foo: {&#39;bar&#39;: ..., &#39;baz&#39;: ...}.</span>
 
@@ -298,17 +298,17 @@
     <span class="k">return</span> <span class="n">out</span>
 
 
-<span class="k">def</span> <span class="nf">normalize_language</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">normalize_language</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Normalize accepted lang codes to ISO format.&quot;&quot;&quot;</span>
 
-    <span class="k">return</span> <span class="n">x</span>
+    <span class="k">return</span> <span class="n">self</span>
 
 
-<span class="k">def</span> <span class="nf">normalize_computer_language</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">normalize_computer_language</span><span class="p">(</span><span class="n">self</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Normalize accepted computer language strings.&quot;&quot;&quot;</span>
 
-    <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-    <span class="k">return</span> <span class="n">PROGRAMMING_LANGUAGES_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+    <span class="n">self</span> <span class="o">=</span> <span class="n">self</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">PROGRAMMING_LANGUAGES_CODES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">self</span><span class="p">)</span>
 
 
 <span class="c1">#</span>
