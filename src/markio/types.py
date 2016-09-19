@@ -267,7 +267,9 @@ class Markio(DescriptionRoot):
             yield (lang, tree)
 
     def source(self):
-        """Renders the source code equivalent to the markio structure."""
+        """
+        Renders the source code equivalent to the markio structure.
+        """
 
         # Title
         lines = [self.title, '=' * len(self.title), '']
@@ -332,7 +334,8 @@ class Markio(DescriptionRoot):
             except ValueError:
                 pass
             placeholders.sort()
-            placeholders.insert(0, None)
+            if None in obj.placeholder:
+                placeholders.insert(0, None)
 
             for comp_lang in placeholders:
                 value = obj.placeholder[comp_lang]

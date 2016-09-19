@@ -60,17 +60,16 @@ def combine_keys(D, keytrans=lambda x: x, dict_class=OrderedDict):
     Combine keys in a dictionary so section like 'foo (bar)' and 'foo (baz)'
     are merged into foo: {'bar': ..., 'baz': ...}.
 
-    Parameters
-    ----------
-
-    D : mapping
-        Input dictionary
-    keytrans : callable
-        Function that is applied to normalize the keys of the output dictionary.
-    dict : type
-        A callable that returns an empty mapping object. Useful, for instance
-        if the user wants to return merged OrderedDict's rather than regular
-        dictionaries.
+    Args:
+        D (mapping):
+            Input dictionary
+        keytrans (callable):
+            Function that is applied to normalize the keys of the output
+            dictionary.
+        dict (type):
+            A callable that returns an empty mapping object. Useful, for
+            instance if the user wants to return merged OrderedDict's rather
+            than regular dictionaries.
     """
     out = dict_class()
     for (k, v) in D.items():
@@ -88,26 +87,73 @@ def combine_keys(D, keytrans=lambda x: x, dict_class=OrderedDict):
     return out
 
 
-def dom_flatten(dom_node, level=3):
+def markdown_source(nodes):
     """
-    Flatten dom node into a markdown source.
+    Convert Markdown mistune AST to source.
+    """
+
+    nodes = list(nodes)
+    nodes.reverse()
+    source = []
+    list_env = []
+    list_item_env = []
+
+    while nodes:
+        node = nodes.pop()
+        tt = node['type']
+
+        # Regular paragraph
+        if tt == 'paragraph':
+            source.append(node['text'] + '\n')
+
+        # Code
+        elif tt == 'code':
+            code = '\n'.join('    ' + x for x in node['text'].splitlines())
+            source.append(code + '\n')
+
+        # List handling
+        elif tt == 'list_start':
+            node = dict(node, num_items=0)
+            list_env.append(node)
+        elif tt == 'list_item_start':
+            list_env[-1]['num_items'] += 1
+            list_item_env.append([])
+        elif tt == 'text':
+            text = node['text']
+            if list_env:
+                if list_env[-1]['ordered']:
+                    number = list_env[-1]['num_items']
+                    source.append('%s. %s' % (number, text))
+                else:
+                    source.append('* %s' % text)
+            else:
+                raise ValueError(node)
+        elif tt == 'list_item_end':
+            list_item_env.pop()
+        elif tt == 'list_end':
+            list_env.pop()
+
+        # Not implemented
+        else:
+            print(node)
+            raise ValueError('invalid node type: %r' % tt)
+
+    return '\n'.join(source).rstrip('\n')
+
+
+def flatten_dom(dom_node, level=3):
+    """
+    Flatten DOM node into a markdown representation.
     """
 
     if isinstance(dom_node, list):
-        data = []
-        for node in dom_node:
-            if node['type'] == 'code':
-                code = '\n'.join('    ' + x for x in node['text'].splitlines())
-                data.append(code)
-            else:
-                data.append(node['text'])
-        return '\n\n'.join(data)
+        return markdown_source(dom_node)
     else:
         data = []
         for title, content in dom_node.items():
             if title is not None:
                 data.append('#' * level + ' ' + title)
-            data.append(dom_flatten(content, level=level + 1))
+            data.append(flatten_dom(content, level=level + 1))
         return '\n\n'.join(data)
 
 
@@ -283,10 +329,10 @@ class Parser:
         """
 
         descriptions = self.sections.pop('description', {})
-        self.markio.description = dom_flatten(descriptions.get(None, []))
+        self.markio.description = flatten_dom(descriptions.get(None, []))
         for lang, descr in descriptions.items():
             lang = normalize_i18n(lang)
-            self.markio[lang].description = dom_flatten(descr)
+            self.markio[lang].description = flatten_dom(descr)
 
     def parse_tests(self):
         """Extract all test cases in iospec format.
@@ -334,7 +380,8 @@ class Parser:
             markio[lang].example = item[0]['text'].strip()
 
     def parse_placeholders(self):
-        """Extract all placeholder sections in file.
+        """
+        Extract all placeholder sections in file.
 
         Placeholders accept internationalization and can be associated to a
         programming language.

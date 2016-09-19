@@ -1,5 +1,23 @@
-*~
-*.swp
-build/*
-dist/*
-src/markio.egg-info/*
+# Cached builds
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+*.dll
+*.egg
+*.egg-info/
+
+# Build directories
+docs/_build/
+build/
+dist/
+
+# Python-boilerplate auto generated files
+src/markio/__meta__.py
+
+# IDEs
+.idea/
+
+# Testing and temporary files
+.tox/
