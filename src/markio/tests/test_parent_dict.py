@@ -1,5 +1,5 @@
 import pytest
-from markio.types import pdict
+from markio.ast import pdict
 
 
 def test_parent_dict():

@@ -1,32 +1,30 @@
-# -*- coding: utf8 -*-
+# -*- coding: utf-8 -*-
 #
 # This file were created by Python Boilerplate. Use boilerplate to start simple
 # usable and best-practices compliant Python projects.
 #
-# Learn more about it at: http://github.com/fabiommendes/boilerplate/
+# Learn more about it at: http://github.com/fabiommendes/python-boilerplate/
 #
 
 import os
 from setuptools import setup, find_packages
 
-
-# Meta information
-name = 'markio'
-author = 'Fábio Macêdo Mendes'
+# Save version and author to __meta__.py
 version = open('VERSION').read().strip()
 dirname = os.path.dirname(__file__)
-
-
-# Save version and author to __meta__.py
-with open(os.path.join(dirname, 'src', name, '__meta__.py'), 'w') as F:
-    F.write('__version__ = %r\n__author__ = %r\n' % (version, author))
-
+path = os.path.join(dirname, 'src', 'markio', '__meta__.py')
+meta = '''# Automatically created. Please do not edit.
+__version__ = u'%s'
+__author__ = u'F\\xe1bio Mac\\xeado Mendes'
+''' % version
+with open(path, 'w') as F:
+    F.write(meta)
 
 setup(
     # Basic info
-    name=name,
+    name='markio',
     version=version,
-    author=author,
+    author='Fábio Macêdo Mendes',
     author_email='fabiomacedomendes@gmail.com',
     url='',
     description='Defines a format for representing I/O based programming '
@@ -38,19 +36,31 @@ setup(
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License (GPL)',
-        'Operating System :: POSIX',
+        'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
         'Topic :: Software Development :: Libraries',
     ],
 
-    # Packages and depencies
+    # Packages and dependencies
     package_dir={'': 'src'},
     packages=find_packages('src'),
-    install_requires=['mistune'],
+    install_requires=[
+        'mistune',
+        'iospec',
+        'ejudge',
+    ],
     extras_require={
-        'testing': ['pytest'],
+        'dev': [
+            'python-boilerplate',
+            'invoke>=0.13',
+            'pytest',
+        ],
     },
-
+    
     # Scripts
     entry_points={
         'console_scripts': ['markio = markio.__main__:main'],
@@ -59,5 +69,4 @@ setup(
     # Other configurations
     zip_safe=False,
     platforms='any',
-    test_suite='%s.test' % name,
 )

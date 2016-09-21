@@ -407,11 +407,9 @@ class Markio(DescriptionRoot):
 
 
 def indent(txt):
-    """Indent text with 4 spaces."""
+    """
+    Indent text with 4 spaces.
+    """
 
     return '\n'.join(('    ' + x if x else '') for x in txt.splitlines())
 
-
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()

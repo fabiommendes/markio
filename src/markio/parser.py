@@ -1,22 +1,17 @@
-from collections import OrderedDict
-import warnings
-import re
 import configparser
-import mistune
-from markio.types import Markio
-from markio.translations import Translation, get_translation
+import warnings
+from collections import OrderedDict
+
+from markio.ast import Markio
 from markio.constants import (PROGRAMMING_LANGUAGES_CODES,
                               COUNTRY_CODES, LANGUAGE_CODES)
+from markio.errors import MarkioSyntaxError
+from markio.markdown import parse_markdown, markdown_source
+from markio.translations import Translation, get_translation
+from markio.util import normalize_i18n, normalize_computer_language, \
+    country_code_re
 
 __all__ = ['parse', 'parse_string']
-
-
-def mistune_parse(source):
-    """
-    Use mistune to parse given source string.
-    """
-
-    return mistune.BlockLexer()(source)
 
 
 def parse(file, extra=None, encoding=None):
@@ -51,7 +46,7 @@ def parse_string(text, extra=None):
     than a file object or the path to a file.
     """
 
-    parser = Parser(text)
+    parser = MarkioParser(text)
     return parser.parse()
 
 
@@ -87,60 +82,6 @@ def combine_keys(D, keytrans=lambda x: x, dict_class=OrderedDict):
     return out
 
 
-def markdown_source(nodes):
-    """
-    Convert Markdown mistune AST to source.
-    """
-
-    nodes = list(nodes)
-    nodes.reverse()
-    source = []
-    list_env = []
-    list_item_env = []
-
-    while nodes:
-        node = nodes.pop()
-        tt = node['type']
-
-        # Regular paragraph
-        if tt == 'paragraph':
-            source.append(node['text'] + '\n')
-
-        # Code
-        elif tt == 'code':
-            code = '\n'.join('    ' + x for x in node['text'].splitlines())
-            source.append(code + '\n')
-
-        # List handling
-        elif tt == 'list_start':
-            node = dict(node, num_items=0)
-            list_env.append(node)
-        elif tt == 'list_item_start':
-            list_env[-1]['num_items'] += 1
-            list_item_env.append([])
-        elif tt == 'text':
-            text = node['text']
-            if list_env:
-                if list_env[-1]['ordered']:
-                    number = list_env[-1]['num_items']
-                    source.append('%s. %s' % (number, text))
-                else:
-                    source.append('* %s' % text)
-            else:
-                raise ValueError(node)
-        elif tt == 'list_item_end':
-            list_item_env.pop()
-        elif tt == 'list_end':
-            list_env.pop()
-
-        # Not implemented
-        else:
-            print(node)
-            raise ValueError('invalid node type: %r' % tt)
-
-    return '\n'.join(source).rstrip('\n')
-
-
 def flatten_dom(dom_node, level=3):
     """
     Flatten DOM node into a markdown representation.
@@ -157,32 +98,15 @@ def flatten_dom(dom_node, level=3):
         return '\n\n'.join(data)
 
 
-def normalize_i18n(x):
-    """Normalize accepted lang codes to ISO format.
-
-    Also check if language codes are valid."""
-
-    if x is None:
-        return None
-    return x.replace('-', '_')
-
-
-def normalize_computer_language(x):
-    """Normalize accepted computer language strings."""
-
-    x = x.lower()
-    return PROGRAMMING_LANGUAGES_CODES.get(x, x)
-
-
-class Parser:
+class MarkioParser:
     """
     Represents a parsing job and is a function namespace.
 
-    This class should not be used directly: please use the parse() and
-    parse_string() functions.
+    This class should not be used directly; Please use the parse_markio() and
+    parse_markio_file() functions.
     """
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, source):
+        self.source = source
         self.markio = Markio()
         self.body = self.init_body()
         self.i18n = None
@@ -360,15 +284,17 @@ class Parser:
             self.error('Must provide language for Answer Key')
 
         self.markio.answer_key.update({
-            normalize_computer_language(k): get_code_block(k, v)
-                for (k, v) in self.sections.pop('answer key', {}).items()
-        })
+                                          normalize_computer_language(k): get_code_block(k, v)
+                                          for (k, v) in self.sections.pop('answer key', {}).items()
+                                          })
 
     def parse_examples(self):
-        """Parse the example section
+        """
+        Parse the example section
 
         Example sections accept internationalization, but cannot be associated
-        to programming languages."""
+        to programming languages.
+        """
 
         markio = self.markio
         examples = self.sections.pop('example', {})
@@ -439,7 +365,7 @@ class Parser:
         corresponding sub-ast's.
         """
         
-        mistune_ast = mistune_parse(self.data)
+        mistune_ast = parse_markdown(self.source)
         dom = self.make_dom(mistune_ast)
         del dom[None]
 
@@ -451,7 +377,7 @@ class Parser:
             )
         if len(dom) != 1:
             from pprint import pprint
-            print(self.data)
+            print(self.source)
             pprint(mistune_ast)
             pprint(dom.keys())
             pprint(dom)
@@ -497,14 +423,3 @@ class Parser:
 #
 # Re matches
 #
-country_code_re = re.compile(
-    r'^\w*(?P<i18n>([a-zA-Z][a-zA-Z])((?:-|_)(:?[a-zA-Z][a-zA-Z]))?)\w*$')
-parenthesis_re = re.compile(r'.*[(](.*)[)]\w*')
-
-
-#
-# Errors
-#
-class MarkioSyntaxError(SyntaxError):
-    """Exception raised when syntax errors are found during parsing of a
-    Markio source."""

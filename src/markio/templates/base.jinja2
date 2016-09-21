@@ -1,16 +1,16 @@
 Question Name
 =============
 
-    # This section expects .ini data. The the first section is implied
+    # This section expects YAML data.
     Author: Your Name <email@server.com>
     Timeout: 1.0
     Tags: #begginer #basic
 
-    # You can put more sections and use either colon or an equal sign.
-    ; Semi colon comments are also accepted ;-)
-    [Custom Section]
-    key1: value1
-    key2= value2
+    # YAML accepts any hierarchy of key value pairs. You should indent data
+    # on custom sections
+    custom-section:
+        key1: value1
+        key2: value2
 
 A short one-paragraph description of your question.
 
