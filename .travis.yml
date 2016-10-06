@@ -15,7 +15,7 @@ matrix:
 
 # Package installation
 install:
-  - pip install tox coveralls
+  - pip install tox coveralls pytest-cov
 
 # Run the tests
 script:

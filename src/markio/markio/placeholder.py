@@ -71,7 +71,7 @@ class Placeholder(collections.Mapping):
         for section in self._sections:
             if section.title.casefold() == 'placeholder':
                 tags = section.tags
-                yield tags[0] if tags else None
+                yield tags[0].casefold() if tags else None
 
     def __len__(self):
         return sum(1 for _ in self)

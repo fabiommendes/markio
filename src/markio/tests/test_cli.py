@@ -35,16 +35,6 @@ def capture_print():
         sys.stdout = old_out
 
 
-# Why is it not working?
-@pytest.skip
-def test_markio_cmd_shows_help():
-    with capture_print() as value:
-        with mock.patch('sys.exit', fake_exit):
-            main(['-h'])
-
-    assert value().startswith('usage: markio [-h]')
-
-
 def test_markio_cmd_shows_source():
     path = os.path.join(DIRECTORY, 'valid-4.md')
     with capture_print() as value:
@@ -69,4 +59,11 @@ def test_markio_cmd_shows_first_language():
     assert value() == "print('hello world')\n"
 
 
+@pytest.skip
+def test_markio_cmd_shows_help():
+    with capture_print() as value:
+        with mock.patch('sys.exit', fake_exit):
+            main(['-h'])
+
+    assert value().startswith('usage: markio [-h]')
 

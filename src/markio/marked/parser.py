@@ -70,6 +70,8 @@ class MarkedParser:
         self.source = source
         try:
             self.data = source.read()
+            if isinstance(self.data, bytes):
+                self.data = self.data.decode('utf8')
         except AttributeError:
             self.data = str(source)
         self.stream = list(enumerate(self.data.splitlines(), 1))

@@ -138,13 +138,13 @@ class Meta(collections.MutableMapping):
         return data
 
 
-def meta_property(name):
+def meta_property(name, default=None):
     """
     A property that maps into a meta key.
     """
 
     def fget(self):
-        return self.meta[name]
+        return self.meta.get(name, default)
 
     def fset(self, value):
         self.meta[name] = value

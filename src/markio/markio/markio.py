@@ -58,8 +58,9 @@ class Markio(Marked):
     slug = meta_property('slug')
     tags = meta_property('tags')
     timeout = meta_property('timeout')
-    language = meta_property('language')
-    i18n = meta_property('i18n')
+    points = meta_property('points', 100)
+    stars = meta_property('stars', 0)
+
     description = section_property('description', default='')
     examples_source = section_property('examples', default='')
     tests_source = section_property('tests', default='')
@@ -68,6 +69,30 @@ class Markio(Marked):
 
     _examples_cache = None
     _tests_cache = None
+    _language = meta_property('language')
+    _i18n = meta_property('i18n')
+
+    @property
+    def language(self):
+        lang = self._language
+        if lang is None:
+            return None
+        return lang.casefold()
+
+    @language.setter
+    def language(self, value):
+        self._language = value
+
+    @property
+    def i18n(self):
+        i18n = self._i18n
+        if i18n is None:
+            return None
+        return i18n.casefold()
+
+    @i18n.setter
+    def i18n(self, value):
+        self._i18n = value
 
     def __init__(self, title=None,
                  author=None, slug=None, tags=None, timeout=1,
@@ -121,6 +146,7 @@ class Markio(Marked):
 
     def load_section(self, title, content, tags):
         name = title.casefold()
+        tags = casefold(tags)
 
         try:
             loader = getattr(self, 'load_section_' + name.replace(' ', '_'))
@@ -163,3 +189,10 @@ class Markio(Marked):
 def forbid_tags(title, tags):
     if tags:
         raise ValueError('%r section cannot have tags' % title)
+
+
+def casefold(obj):
+    if isinstance(obj, str):
+        return obj.casefold()
+    else:
+        return tuple(x.casefold() for x in obj)

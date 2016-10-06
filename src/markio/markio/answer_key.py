@@ -18,7 +18,7 @@ class AnswerKey(collections.Mapping):
     def __iter__(self):
         for section in self._sections:
             if section.title.casefold() == 'answer key':
-                yield section.tags[0]
+                yield section.tags[0].casefold()
 
     def __len__(self):
         return sum(1 for _ in self)
