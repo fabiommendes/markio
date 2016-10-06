@@ -59,8 +59,7 @@ def test_markio_cmd_shows_first_language():
     assert value() == "print('hello world')\n"
 
 
-@pytest.skip
-def test_markio_cmd_shows_help():
+def _test_markio_cmd_shows_help():
     with capture_print() as value:
         with mock.patch('sys.exit', fake_exit):
             main(['-h'])

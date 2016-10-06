@@ -27,18 +27,24 @@ def hello():
     return parse_markio(data)
 
 
-src_0 = pytest.fixture(partial(src, 0))
-src_1 = pytest.fixture(partial(src, 1))
-src_2 = pytest.fixture(partial(src, 2))
-src_3 = pytest.fixture(partial(src, 3))
-src_4 = pytest.fixture(partial(src, 4))
-src_5 = pytest.fixture(partial(src, 5))
-markio_0 = pytest.fixture(partial(markio, 0))
-markio_1 = pytest.fixture(partial(markio, 1))
-markio_2 = pytest.fixture(partial(markio, 2))
-markio_3 = pytest.fixture(partial(markio, 3))
-markio_4 = pytest.fixture(partial(markio, 4))
-markio_5 = pytest.fixture(partial(markio, 5))
+def mk_fixture(func, idx):
+    def fixture():
+        return func(idx)
+    fixture.__name__ = '%s_%s' % (func.__name__, idx)
+    return pytest.fixture(fixture)
+
+src_0 = mk_fixture(src, 0)
+src_1 = mk_fixture(src, 1)
+src_2 = mk_fixture(src, 2)
+src_3 = mk_fixture(src, 3)
+src_4 = mk_fixture(src, 4)
+src_5 = mk_fixture(src, 5)
+markio_0 = mk_fixture(markio, 0)
+markio_1 = mk_fixture(markio, 1)
+markio_2 = mk_fixture(markio, 2)
+markio_3 = mk_fixture(markio, 3)
+markio_4 = mk_fixture(markio, 4)
+markio_5 = mk_fixture(markio, 5)
 
 
 @pytest.fixture(params=[0, 1, 2])
