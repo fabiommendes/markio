@@ -1,121 +1,164 @@
 import io
 import os
+from functools import partial
 
 import pytest
 
-import markio
+from iospec import IoSpec
+from markio import parse_markio, parse_marked
+from markio.utils import strip_trailing_whitespace
 
 DIRNAME = os.path.dirname(__file__)
+
+
+def src(idx):
+    path = os.path.join(DIRNAME, 'examples', 'valid-%s.md' % idx)
+    return open(path).read()
+
+
+def markio(idx):
+    return parse_markio(src(idx))
 
 
 @pytest.fixture
 def hello():
     path = os.path.join(DIRNAME, 'examples', 'hello-person.md')
-    return markio.parse(path)
+    data = open(path).read()
+    return parse_markio(data)
 
 
-@pytest.fixture
-def markio_example_1():
-    path = os.path.join(DIRNAME, 'examples', 'markio-example-1.md')
-    return open(path).read()
+src_0 = pytest.fixture(partial(src, 0))
+src_1 = pytest.fixture(partial(src, 1))
+src_2 = pytest.fixture(partial(src, 2))
+src_3 = pytest.fixture(partial(src, 3))
+src_4 = pytest.fixture(partial(src, 4))
+src_5 = pytest.fixture(partial(src, 5))
+markio_0 = pytest.fixture(partial(markio, 0))
+markio_1 = pytest.fixture(partial(markio, 1))
+markio_2 = pytest.fixture(partial(markio, 2))
+markio_3 = pytest.fixture(partial(markio, 3))
+markio_4 = pytest.fixture(partial(markio, 4))
+markio_5 = pytest.fixture(partial(markio, 5))
 
 
-@pytest.fixture(params=[0])
+@pytest.fixture(params=[0, 1, 2])
 def round_trip_source(request):
-    path = os.path.join(DIRNAME, 'examples', 'valid-%s.md' % request.param)
-    return open(path).read()
+    return src(request.param)
 
 
-def test_pprint(hello):
-    F = io.StringIO()
-    hello.pprint(file=F)
-    st = r"""
-{'answer_key': {'c': '#include<stdio.h>\n'
-                     '\n'
-                     'main() {\n'
-                     '    char buffer[101];\n'
-                     '\n'
-                     '    puts("What is your name? ");\n'
-                     '    scanf("%s", buffer);\n'
-                     '    printf("Hello, %s!\\n", buffer);\n'
-                     '}',
-                'python3': '# This indentation is necessary to mark source as '
-                           'a code block in\n'
-                           '# markdown!\n'
-                           '\n'
-                           "name = input('What is your name? ')\n"
-                           "print('Hello, %s!' % name)"},
- 'author': 'Chips Chipperfield <chips@chipperfield.com>',
- 'description': 'Create a program that asks the user name and prints the '
-                'message\n'
-                '"Hello, <name>!" on the screen. The program output should be '
-                '**exactly**\n'
-                'as requested, i.e., you should use **exactly** the same case '
-                'and punctuation\n'
-                'marks as in the example string. You can assume that the input '
-                'name is at\n'
-                'most 100 characters long.',
- 'example': 'What is your name? <John>\nHello John!',
- 'placeholder': {None: 'Type here your response.',
-                 'python3': '# Type here your response. Remember to use the '
-                            'print() and input()\n'
-                            '# functions'},
- 'short_description': 'A program that prints a personalized greeting to the '
-                      'user.',
- 'slug': 'hello-person',
- 'tags': ['begginer', 'basic'],
- 'tests': '@input\n'
-          '    Mary\n'
-          '\n'
-          '@input\n'
-          '    mary\n'
-          '\n'
-          '@input\n'
-          '    Long Name\n'
-          '\n'
-          '@input\n'
-          '    $string[<100]',
- 'timeout': 1.0,
- 'title': 'Hello Person'}"""
-    assert F.getvalue().strip() == st.strip()
+#
+# Generic tests
+#
+def test_markio_is_valid_marked_source(round_trip_source):
+    marked = parse_marked(round_trip_source)
+    assert marked.title
 
 
+#
+# Test meta information
+#
+def test_author_syncs_with_meta(hello):
+    author = 'Chips Chipperfield <chips@chipperfield.com>'
+    assert hello.author == hello.meta['author'] == author
+
+    hello.author = 'foo'
+    assert hello.meta['author'] == hello.meta['Author'] == 'foo'
+
+
+def test_slug_syncs_with_meta(hello):
+    assert hello.slug == hello.meta['slug'] == 'hello-person'
+
+    hello.slug = 'foo'
+    assert hello.meta['slug'] == 'foo'
+
+
+def test_timeout_syncs_with_meta(hello):
+    assert hello.timeout == hello.meta['timeout'] == 1.5
+
+    hello.timeout = 5
+    assert hello.meta['timeout'] == 5
+
+
+def test_tags_syncs_with_meta(hello):
+    tags = ['beginner', 'basic']
+    assert hello.meta['tags'] == tags
+    assert hello.tags == tags
+
+
+#
+# Sections
+#
+def test_sections(hello):
+    assert list(hello.sections.keys()) == [
+        'Description',
+        'Examples',
+        'Tests',
+        'Answer Key',
+        'Answer Key',
+        'Placeholder',
+        'Placeholder',
+    ]
+    assert hello.sections[0].title == 'Description'
+
+
+def test_description_section_maps_to_attribute(markio_0):
+    assert markio_0.sections['description'].data == 'Description.'
+    assert markio_0.description == 'Description.'
+
+    markio_0.description = 'other'
+    assert markio_0.description == 'other'
+    assert markio_0.sections['description'].data == 'other'
+
+
+def test_examples_is_iospec_source(markio_2):
+    examples = markio_2.examples
+    assert isinstance(examples, IoSpec)
+    assert len(examples) == 1
+
+    tests = markio_2.tests
+    src1 = '    @input $name\n    @input john lennon'
+    src2 = '@input $name\n@input john lennon'
+    assert markio_2.tests_source == src1
+    assert isinstance(tests, IoSpec)
+    assert tests.source() == src2
+    assert len(tests) == 2
+
+
+#
+# Answer keys
+#
+def test_answer_key_behaves_like_a_dict(markio_0, markio_3):
+    assert dict(markio_0.answer_key) == {}
+    assert dict(markio_3.answer_key) == {
+        'python': "print('hello world')",
+        'ruby': "puts 'hello world'",
+    }
+    assert len(markio_3.answer_key) == 2
+
+
+#
+# Placeholder
+#
+def test_placeholder_behaves_like_a_dict(markio_0, markio_4):
+    assert dict(markio_0.placeholder) == {}
+    assert dict(markio_4.placeholder) == {
+        None: 'Generic comment',
+        'ruby': 'Use the `puts text` command'
+    }
+    assert len(markio_4.placeholder) == 2
+
+
+def test_placeholder_can_determine_comment_from_text(markio_4):
+    assert markio_4.placeholder['python'] == '# Generic comment'
+    assert markio_4.placeholder['c'] == '/**\n * Generic comment\n */'
+
+
+#
+# Other tests
+#
 def test_round_trip(hello):
     path = os.path.join(DIRNAME, 'examples', 'hello-person.md')
+    src = strip_trailing_whitespace(hello.source())
     with open(path) as F:
-        assert hello.source() == F.read()
-
-
-def test_hello_parsing(hello):
-    assert hello.title == 'Hello Person'
-    assert None not in hello.answer_key
-
-
-def test_markio_example_1_parsing(markio_example_1):
-    obj = markio.parse_string(markio_example_1)
-    assert obj.pformat().strip() == r'''
-{'author': 'Chips',
- 'description': 'Long description\n\n### Sub-session\n\nSomething else...',
- 'short_description': 'Short description.',
- 'title': 'Example1'}'''.strip()
-
-
-def test_stripped_code(hello):
-    for code in hello.answer_key.values():
-        assert not code.endswith('\n\n')
-
-
-def test_source_renderer():
-    tree = markio.Markio(
-        title='foo',
-        author='bar',
-        timeout=1,
-        description='description',
-    )
-
-    assert '===' in tree.source()
-
-
-def test_example_round_trip(round_trip_source):
-    parsed = markio.parse_string(round_trip_source)
-    assert round_trip_source == parsed.source()
+        data = strip_trailing_whitespace(F.read())
+        assert src == data

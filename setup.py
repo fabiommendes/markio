@@ -7,6 +7,7 @@
 #
 
 import os
+import codecs
 from setuptools import setup, find_packages
 
 # Save version and author to __meta__.py
@@ -29,7 +30,7 @@ setup(
     url='',
     description='Defines a format for representing I/O based programming '
                 'questions and implements a parser for it.',
-    long_description=open('README.rst').read(),
+    long_description=codecs.open('README.rst', 'rb', 'utf8').read(),
 
     # Classifiers (see https://pypi.python.org/pypi?%3Aaction=list_classifiers)
     classifiers=[
@@ -52,6 +53,8 @@ setup(
         'mistune',
         'iospec',
         'ejudge',
+        'PyYAML',
+        'pyaml',
     ],
     extras_require={
         'dev': [

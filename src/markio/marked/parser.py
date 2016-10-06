@@ -1,9 +1,9 @@
-import collections
 import re
 import sys
 
 from markio.errors import MarkioSyntaxError
-from markio.util import indent
+from markio.marked.marked import Marked
+from markio.utils import unindent
 
 
 def parse_marked(src, **kwargs):
@@ -41,82 +41,40 @@ def parse_marked(src, **kwargs):
         You can use how many sections you like.
 
     The resulting :class:`Marked` object is a linear structure with ``title``,
-    ``meta``, ``short_description``, and ``sections`` attributes. Sections is a
-    sequence of (title, data) pairs.
+    ``meta``, ``short_description``, and ``sections`` attributes. The later is
+    basically a sequence of (title, data) pairs.
     """
 
     parser = MarkedParser(src, **kwargs)
     return parser.parse()
 
 
-class Marked(collections.Sequence):
-    """
-    Represents generic markio-like data.
-    """
-
-    def __init__(self, title, meta=None, short_description='', sections=None):
-        self.title = title
-        self.meta = meta
-        self.short_description = short_description
-        self.sections = list(sections or [])
-
-    def __len__(self):
-        return 4
-
-    def __iter__(self):
-        yield self.title
-        yield self.meta
-        yield self.short_description
-        yield self.sections
-
-    def __getitem__(self, idx):
-        return list(self)[idx]
-
-    def __repr__(self):
-        return '%s(%r)' % (self.__class__.__name__, self.title)
-
-    def source(self):
-        """
-        Renders generic markio source.
-        """
-
-        # Add title
-        lines = [self.title, '=' * len(self.title), '']
-
-        # Add meta
-        if self.meta:
-            lines.append(indent(self.meta, 4))
-            lines.append('')
-
-        # Add short description
-        if self.short_description:
-            lines.append(self.short_description)
-            lines.append('')
-
-        for title, data in self.sections:
-            lines.extend(['', title, '-' * len(title), '', data, ''])
-
-        return '\n'.join(lines)
-
-
 class MarkedParser:
     """
-    Generic parser for Markio-like documents.
+    Generic parser for Marked documents.
 
     Prefer to use the :func:`parse` function instead of manually instantiating
     this class.
+
+    Sub-formats should pass a ``document_class`` callable that creates an empty
+    document. It is probably necessary to override the ``.load_*()`` methods to
+    control how raw data is inserted into the document.
     """
 
     TITLE_RE = re.compile(r'^')
     WHITESPACE_RE = re.compile(r'^\s*')
     LINE_RE = re.compile(r'-*')
 
-    def __init__(self, source):
+    def __init__(self, source, document_class=Marked):
         self.lineno = 0
         self.source = source
-        self.stream = list(enumerate(self.source.splitlines(), 1))
+        try:
+            self.data = source.read()
+        except AttributeError:
+            self.data = str(source)
+        self.stream = list(enumerate(self.data.splitlines(), 1))
         self.stream.reverse()
-        self.parsed = Marked(title='')
+        self.parsed = document_class()
 
     def __bool__(self):
         return bool(self.stream)
@@ -164,7 +122,8 @@ class MarkedParser:
     def read_indented(self):
         """
         Read all indented lines and return a pair of (level, content) with the
-        string contents with indentation removed and the indentation level.
+        string contents with indentation removed and the current indentation
+        level.
         """
 
         lines = []
@@ -190,12 +149,7 @@ class MarkedParser:
                 break
 
         # Create content string and determine indentation level
-        re = self.WHITESPACE_RE
-        level = sys.maxsize
-        get_level = lambda x: re.match(x).end()
-        stripped = lambda line: line[level:] if line.strip() else ''
-        level = min(get_level(line) for line in lines if line.strip())
-        content = '\n'.join(map(stripped, lines))
+        content, level = unindent(lines, retlevel=True)
         return level, content
 
     def read_before_title(self, prefix):
@@ -223,7 +177,7 @@ class MarkedParser:
 
         return '\n'.join(data)
 
-    def read_title(self, chr, prefix):
+    def read_title(self, underline_char, prefix):
         """
         Read title with the using the given underline character.
         """
@@ -244,10 +198,10 @@ class MarkedParser:
 
         # Check underline length
         chars = set(underline)
-        if len(chars) != 1 or chars != {chr}:
+        if len(chars) != 1 or chars != {underline_char}:
             raise MarkioSyntaxError(
                 "line %s: title should have an underline formed of '%s' "
-                "characters." % (lineno, chr)
+                "characters." % (lineno, underline_char)
             )
         if len(underline) != len(title):
             raise MarkioSyntaxError(
@@ -258,7 +212,7 @@ class MarkedParser:
 
     def parse(self):
         """
-        Return a MarkioGeneric object with project's parse tree.
+        Return a Marked object with document's parse tree.
         """
 
         self.parse_title()
@@ -268,15 +222,18 @@ class MarkedParser:
         return self.parsed
 
     def parse_title(self):
-        self.parsed.title = self.read_title('=', '# ')
+        title = self.read_title('=', '# ')
+        self.parsed.load_title(title)
 
     def parse_meta(self):
         self.skip_blank()
         _, content = self.read_indented()
-        self.parsed.meta = content
+        meta = content
+        self.parsed.load_meta(meta)
 
     def parse_short_description(self):
-        self.parsed.short_description = self.read_before_title('## ').rstrip()
+        short_description = self.read_before_title('## ').rstrip()
+        self.parsed.load_short_description(short_description)
 
     def parse_sections(self):
         while self:
@@ -285,5 +242,22 @@ class MarkedParser:
     def parse_section(self):
         title = self.read_title('-', '## ')
         content = self.read_before_title('## ').rstrip()
-        content = content.strip()
-        self.parsed.sections.append((title, content))
+        content = content.strip('\r\n')
+        title, tags = split_tags(title)
+        title = title.rstrip()
+        self.parsed.load_section(title, content, tags)
+
+
+def split_tags(title):
+    """
+    Split the title part from the corresponding tags.
+    """
+
+    title = title.rstrip()
+    if not title.endswith(')'):
+        return title, []
+
+    title, _, tags = title.rpartition('(')
+    tags = tags[:-1].split(',')
+    tags = [x.strip() for x in tags]
+    return title, tags

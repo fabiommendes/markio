@@ -1,16 +1,12 @@
-Hello
+Title
 =====
 
-    Author: Foo
+    Author: Author
 
-Subtitle.
+Short description.
 
 
 Description
 -----------
 
-Description
-
-* Item 1
-* Item 2
-
+Description.

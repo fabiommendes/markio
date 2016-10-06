@@ -3,8 +3,8 @@ Hello Person
 
     Author: Chips Chipperfield <chips@chipperfield.com>
     Slug: hello-person
-    Timeout: 1.0
-    Tags: #begginer #basic
+    Timeout: 1.5
+    Tags: beginner, basic
 
 A program that prints a personalized greeting to the user.
 
@@ -18,11 +18,13 @@ as requested, i.e., you should use **exactly** the same case and punctuation
 marks as in the example string. You can assume that the input name is at
 most 100 characters long.
 
-Example
--------
+
+Examples
+--------
 
     What is your name? <John>
     Hello John!
+
 
 Tests
 -----
@@ -37,7 +39,7 @@ Tests
         Long Name
 
     @input
-        $string[<100]
+        $str(100)
 
 
 Answer Key (c)
@@ -53,6 +55,7 @@ Answer Key (c)
         printf("Hello, %s!\n", buffer);
     }
 
+
 Answer Key (python3)
 --------------------
 
@@ -67,6 +70,7 @@ Placeholder
 -----------
 
     Type here your response.
+
 
 Placeholder (python3)
 ---------------------
