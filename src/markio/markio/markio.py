@@ -62,8 +62,8 @@ class Markio(Marked):
     stars = meta_property('stars', 0)
 
     description = section_property('description', default='')
-    examples_source = section_property('examples', default='')
-    tests_source = section_property('tests', default='')
+    examples_source = section_property('examples', default='', remove_indent=True)
+    tests_source = section_property('tests', default='', remove_indent=True)
     examples = iospec_view('examples')
     tests = iospec_view('tests')
 
@@ -184,6 +184,16 @@ class Markio(Marked):
 
     def load_extra_section(self, title, content, tags):
         raise NotImplementedError('invalid section: %s' % title)
+
+    def add_placeholder(self, source, language=None):
+        """
+        Adds placeholder text for the given language.
+        """
+
+        if language:
+            self.sections['Placeholder', language] = source
+        else:
+            self.sections['Placeholder'] = source
 
 
 def forbid_tags(title, tags):

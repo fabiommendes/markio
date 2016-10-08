@@ -1,6 +1,7 @@
 import collections
 
-from markio.utils import unindent
+from markio.marked import Section
+from markio.utils import unindent, indent
 
 
 class AnswerKey(collections.Mapping):
@@ -15,6 +16,15 @@ class AnswerKey(collections.Mapping):
         section = self._sections['answer key', key]
         return unindent(section.data)
 
+    def __setitem__(self, key, source):
+        source = indent(source, 4)
+        try:
+            section = self._sections['answer key', key]
+            section.data = source
+        except KeyError:
+            section = Section('Answer Key', source, (key,))
+            self._sections.append(section)
+
     def __iter__(self):
         for section in self._sections:
             if section.title.casefold() == 'answer key':
@@ -25,3 +35,10 @@ class AnswerKey(collections.Mapping):
 
     def __repr__(self):
         return repr(dict(self))
+
+    def add(self, source, language):
+        """
+        Add/replace answer key for the given language
+        """
+
+        self[language] = source

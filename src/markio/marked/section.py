@@ -1,5 +1,7 @@
 import collections
 
+from markio.utils import indent, unindent
+
 
 class Section(collections.Sequence):
     """
@@ -147,18 +149,24 @@ class SectionList(collections.MutableSequence, collections.Mapping):
         return [x.to_json() for x in self._data]
 
 
-def section_property(name, default=None):
+def section_property(name, default=None, remove_indent=False):
     """
     Return a r/w property that maps to an specific named section.
     """
 
     def fget(self):
         try:
-            return self.sections[name].data
+            data = self.sections[name].data
         except KeyError:
             return default
+        else:
+            if remove_indent:
+                data = unindent(data)
+            return data
 
     def fset(self, value):
+        if remove_indent:
+            value = indent(value, 4)
         try:
             section = self.sections[name]
             section.data = value

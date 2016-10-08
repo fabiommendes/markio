@@ -124,7 +124,7 @@ def test_examples_is_iospec_source(markio_2):
     tests = markio_2.tests
     src1 = '    @input $name\n    @input john lennon'
     src2 = '@input $name\n@input john lennon'
-    assert markio_2.tests_source == src1
+    assert markio_2.tests_source == src2
     assert isinstance(tests, IoSpec)
     assert tests.source() == src2
     assert len(tests) == 2
@@ -140,6 +140,15 @@ def test_answer_key_behaves_like_a_dict(markio_0, markio_3):
         'ruby': "puts 'hello world'",
     }
     assert len(markio_3.answer_key) == 2
+
+
+def test_can_add_a_new_answer_key(markio_3):
+    markio_3.answer_key.add('...', 'js')
+    assert dict(markio_3.answer_key) == {
+        'python': "print('hello world')",
+        'ruby': "puts 'hello world'",
+        'js': '...'
+    }
 
 
 #
