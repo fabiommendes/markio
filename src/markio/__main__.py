@@ -2,6 +2,8 @@ import argparse
 
 import sys
 
+from markio.utils import indent
+
 
 def make_parser():
     def add_params(parser, input=False, debug=False, lang=False):
@@ -33,6 +35,22 @@ def make_parser():
                                        help='run answer key code')
     add_params(parser_run, input=True, debug=True, lang=True)
     parser_run.set_defaults(func=markio_run)
+
+    # "markio test" sub-command
+    parser_test = subparsers.add_parser('test',
+                                       help='check tests consistency')
+    add_params(parser_test, input=True, debug=True, lang=True)
+    parser_test.add_argument(
+        '--silent', '-s',
+        action='store_true',
+        help='do not show final test cases expansion'
+    )
+    parser_test.add_argument(
+        '--expansions', '-e',
+        type=int,
+        help='control the number of expansions'
+    )
+    parser_test.set_defaults(func=markio_test)
 
     # "markio src" sub-command
     parser_src = subparsers.add_parser('src',
@@ -78,11 +96,11 @@ def markio_extract_source(args):
         sys.exit('Error: No answer key defined!')
     elif not args.lang:
         lang, source = next(iter(md.answer_key.items()))
-        return source, lang.lower()
+        return md, source, lang.lower()
     else:
         lang = args.lang.lower()
         source = md.answer_key[lang]
-        return source, lang
+        return md, source, lang
 
 
 def markio_run(args):
@@ -91,7 +109,7 @@ def markio_run(args):
     """
 
     import ejudge
-    source, lang = markio_extract_source(args)
+    _, source, lang = markio_extract_source(args)
     ejudge.exec(source, lang=lang)
 
 
@@ -100,12 +118,43 @@ def markio_src(args):
     `markio src <file>` command.
     """
 
-    source, lang = markio_extract_source(args)
+    _, source, lang = markio_extract_source(args)
     if args.output:
         with open(args.output, 'w', encoding='utf8') as F:
             F.write(source)
     else:
         print(source)
+
+
+def markio_test(args):
+    """
+    `markio test <file>` command.
+    """
+
+    import ejudge
+    md, source, lang = markio_extract_source(args)
+    iospec = md.tests
+    if args.expansions is not None:
+        iospec.expand_inputs(args.expansions)
+    results = ejudge.run(source, iospec, lang=lang)
+
+    if results.has_errors:
+        for case, expected in zip(results, iospec):
+            if case.is_error:
+                print('Error executing testcase\n', file=sys.stderr)
+                print(indent(expected.source(), 4), file=sys.stderr)
+                print('\nMessage\n', file=sys.stderr)
+                print(indent(case.get_error_message(), 4), file=sys.stderr)
+                sys.exit()
+
+    if args.silent:
+        print('Expanded to %s test cases' % len(results))
+    else:
+        for idx, case in enumerate(results, 1):
+            print('Test case %s:' % idx)
+            print(indent(case.source(), 4))
+            print()
+        print('All tests cases were successful!')
 
 
 def main(args=None):

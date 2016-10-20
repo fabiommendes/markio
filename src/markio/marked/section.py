@@ -167,6 +167,11 @@ def section_property(name, default=None, remove_indent=False):
     def fset(self, value):
         if remove_indent:
             value = indent(value, 4)
+        if value == default:
+            if name in self.sections:
+                del self.sections
+            return
+
         try:
             section = self.sections[name]
             section.data = value

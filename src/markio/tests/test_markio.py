@@ -39,12 +39,14 @@ src_2 = mk_fixture(src, 2)
 src_3 = mk_fixture(src, 3)
 src_4 = mk_fixture(src, 4)
 src_5 = mk_fixture(src, 5)
+src_6 = mk_fixture(src, 6)
 markio_0 = mk_fixture(markio, 0)
 markio_1 = mk_fixture(markio, 1)
 markio_2 = mk_fixture(markio, 2)
 markio_3 = mk_fixture(markio, 3)
 markio_4 = mk_fixture(markio, 4)
 markio_5 = mk_fixture(markio, 5)
+markio_6 = mk_fixture(markio, 6)
 
 
 @pytest.fixture(params=[0, 1, 2])
@@ -94,6 +96,22 @@ def test_tags_syncs_with_meta(hello):
 #
 # Sections
 #
+def test_sections_basic(markio_0):
+    obj = markio_0
+    assert list(obj.sections.keys()) == [
+        'Description',
+    ]
+
+
+def test_sections_extra(markio_6):
+    obj = markio_6
+    assert list(obj.sections.keys()) == [
+        'Description',
+        'Extra section',
+        'Extra section 2'
+    ]
+
+
 def test_sections(hello):
     assert list(hello.sections.keys()) == [
         'Description',
@@ -166,6 +184,17 @@ def test_placeholder_behaves_like_a_dict(markio_0, markio_4):
 def test_placeholder_can_determine_comment_from_text(markio_4):
     assert markio_4.placeholder['python'] == '# Generic comment'
     assert markio_4.placeholder['c'] == '/**\n * Generic comment\n */'
+
+
+#
+# Non-standard values
+#
+def test_extra_sections_supported(markio_6):
+    obj = markio_6
+    assert sorted(obj.extra.keys()) == [('extra section',),
+                                        ('extra section 2', 'meta')]
+    assert obj.extra['extra section'] == 'Extra section.'
+    assert obj.extra['extra section 2', 'meta'] == 'Extra section 2.'
 
 
 #

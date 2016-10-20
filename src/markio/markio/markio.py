@@ -3,6 +3,7 @@ import decimal
 import iospec
 from boxed.core import indent
 from markio.marked import Marked
+from markio.marked.data import CasefoldDict
 from markio.marked.meta import Meta, meta_property
 from markio.marked.section import Section, SectionList, section_property
 from markio.markio.answer_key import AnswerKey
@@ -43,7 +44,9 @@ def iospec_view(attr):
             setattr(self, source_attr, '')
             setattr(self, cache_attr, ('', None))
         else:
-            source = indent(value.source(), 4)
+            if isinstance(value, (iospec.IoSpec, iospec.TestCase)):
+                value = value.source()
+            source = indent(value, 4)
             setattr(self, cache_attr, (source, value))
 
     return property(fget, fset)
@@ -64,11 +67,14 @@ class Markio(Marked):
     description = section_property('description', default='')
     examples_source = section_property('examples', default='', remove_indent=True)
     tests_source = section_property('tests', default='', remove_indent=True)
+    hidden_tests_source = section_property('hidden tests', default='', remove_indent=True)
     examples = iospec_view('examples')
     tests = iospec_view('tests')
+    hidden_tests = iospec_view('hidden_tests')
 
     _examples_cache = None
     _tests_cache = None
+    _hidden_tests_cache = None
     _language = meta_property('language')
     _i18n = meta_property('i18n')
 
@@ -98,7 +104,7 @@ class Markio(Marked):
                  author=None, slug=None, tags=None, timeout=1,
                  language=None, i18n=None,
                  short_description='',
-                 description='', examples=None, tests=None,
+                 description='', examples=None, tests=None, hidden_tests=None,
                  sections=None,
                  meta=None,
                  parent=None):
@@ -124,14 +130,21 @@ class Markio(Marked):
         self.description = description
         self.examples = examples
         self.tests = tests
+        self.hidden_tests = hidden_tests
 
         # Composite sections
         self.answer_key = AnswerKey(self.sections)
         self.placeholder = Placeholder(self.sections)
 
         # Extra sections
-        if sections:
-            raise NotImplementedError
+        self.extra = CasefoldDict()
+        for section in (sections or ()):
+            title, content, tags = section
+            if 'extra' not in tags:
+                tags += 'extra',
+            self.load_extra_section(title, content, tags)
+
+        # Extra meta info
         if meta:
             raise NotImplementedError
 
@@ -151,12 +164,9 @@ class Markio(Marked):
         try:
             loader = getattr(self, 'load_section_' + name.replace(' ', '_'))
         except AttributeError:
-            pass
+            return self.load_extra_section(title, content, tags)
         else:
             return loader(title, content, tags)
-
-        # Extra sections
-        return self.load_extra_section(title, content, tags)
 
     def load_section_description(self, title, content, tags):
         forbid_tags(title, tags)
@@ -176,6 +186,13 @@ class Markio(Marked):
             self._tests_cache = content, load_iospec_data(content)
         return section
 
+    def load_section_hidden_tests(self, title, content, tags):
+        forbid_tags(title, tags)
+        section = super().load_section(title, content, tags)
+        if content:
+            self._hidden_tests_cache = content, load_iospec_data(content)
+        return section
+
     def load_section_answer_key(self, title, content, tags):
         return super().load_section(title, content, tags)
 
@@ -183,7 +200,13 @@ class Markio(Marked):
         return super().load_section(title, content, tags)
 
     def load_extra_section(self, title, content, tags):
-        raise NotImplementedError('invalid section: %s' % title)
+        if 'extra' not in tags:
+            raise ValueError('invalid section: %s' % title)
+        norm_tags = tuple(tag for tag in tags if tag != 'extra')
+        result = super().load_section(title, content, tags)
+        self.extra[(title,) + norm_tags] = content
+        print(title, norm_tags)
+        return result
 
     def add_placeholder(self, source, language=None):
         """

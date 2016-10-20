@@ -1,1 +1,3 @@
-{}
+{
+  "tests/test_markio.py::test_extra_sections_supported": true
+}
