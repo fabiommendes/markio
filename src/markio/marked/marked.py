@@ -140,3 +140,8 @@ class Marked(collections.Sequence):
         section = Section(title, content, tags)
         self.sections.update_section(section)
         return section
+
+    def validate(self):
+        """
+        Can be overriden by subclasses to implement validation.
+        """
