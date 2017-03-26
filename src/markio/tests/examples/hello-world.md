@@ -5,6 +5,8 @@ Hello World
     Slug: hello-world
     Timeout: 1.5
     Tags: beginner, basic
+    Language: python3
+    I18N: en-US
 
 A program that prints a hello world message.
 

@@ -207,6 +207,13 @@ def dump_add_vspacing(buff, vspacing):
 
 def dump(data, dest=str, safe=False,
          force_embed=False, vspacing=None, string_val_style=None, **kwargs):
+    """
+    Dumps data to a YAML string.
+
+    YAML data produced by this function is prettified to resemble a YAML created
+    by humans.
+    """
+    
     buff = io.BytesIO()
     Dumper = PrettyYAMLDumper if safe else UnsafePrettyYAMLDumper
     Dumper = functools.partial(Dumper,
@@ -237,6 +244,10 @@ def dump(data, dest=str, safe=False,
 
 
 def pprint(*data, **kwargs):
+    """
+    Pretty print YAML compatible data.
+    """
+
     dst = kwargs.pop('file', kwargs.pop('dest', sys.stdout))
     if len(data) == 1:
         data, = data

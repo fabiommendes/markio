@@ -27,6 +27,13 @@ def hello():
     return parse_markio(data)
 
 
+@pytest.fixture
+def hello_world():
+    path = os.path.join(DIRNAME, 'examples', 'hello-world.md')
+    data = open(path).read()
+    return parse_markio(data)
+
+
 def mk_fixture(func, idx):
     def fixture():
         return func(idx)
@@ -91,6 +98,11 @@ def test_tags_syncs_with_meta(hello):
     tags = ['beginner', 'basic']
     assert hello.meta['tags'] == tags
     assert hello.tags == tags
+
+
+def test_attributes(hello_world):
+    assert hello_world.language == 'python3'
+    assert hello_world.i18n == 'en-us'
 
 
 #
@@ -185,6 +197,13 @@ def test_placeholder_can_determine_comment_from_text(markio_4):
     assert markio_4.placeholder['python'] == '# Generic comment'
     assert markio_4.placeholder['c'] == '/**\n * Generic comment\n */'
 
+
+def test_add_placeholder(hello):
+    hello.add_placeholder('generic directions')
+    hello.add_placeholder('python directions', 'python')
+    src = hello.source()
+    assert 'Placeholder\n' in src
+    assert 'Placeholder (python)\n' in src
 
 #
 # Non-standard values

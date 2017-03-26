@@ -18,6 +18,7 @@ src/markio/__meta__.py
 
 # IDEs
 .idea/
+.cache/
 
 # Testing and temporary files
 .tox/

@@ -92,7 +92,39 @@ class SectionList(collections.MutableSequence, collections.Mapping):
         del self._data[idx]
 
     def __setitem__(self, idx, value):
-        self._data[idx] = value
+        if isinstance(idx, int):
+            self._data[idx] = value
+        elif isinstance(idx, str):
+            self._set_section_by_title(idx, value)
+        elif isinstance(idx, tuple):
+            title, tags = idx
+            self._set_section_by_title_and_tags(title, tags, value)
+        else:
+            raise KeyError('invalid section: %s' % idx)
+
+    def _set_section_by_title(self, title, value):
+        try:
+            section = self._get_section_by_title(title)
+        except KeyError:
+            if isinstance(value, Section):
+                section = value
+            else:
+                section = Section(title, value)
+            self._data.append(section)
+        else:
+            section.data = value
+
+    def _set_section_by_title_and_tags(self, title, tags, value):
+        try:
+            section = self._get_section_by_title_and_tags(title, tags)
+        except KeyError:
+            if isinstance(value, Section):
+                section = value
+            else:
+                section = Section(title, value, tags=tags)
+            self._data.append(section)
+        else:
+            section.data = value
 
     def __eq__(self, other):
         if isinstance(other, (SectionList, list, tuple)):

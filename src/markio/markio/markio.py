@@ -115,7 +115,7 @@ class Markio(Marked):
         self.answer_key = Section('Answer Key', '', key='answer_key')
         self.placeholder = SectionList(self)
         self.translations = {}
-        self.extra_sections = SectionList(self)
+        self.extra = CasefoldDict()
         self._parent = parent
 
         # Meta information
@@ -137,12 +137,8 @@ class Markio(Marked):
         self.placeholder = Placeholder(self.sections)
 
         # Extra sections
-        self.extra = CasefoldDict()
         for section in (sections or ()):
-            title, content, tags = section
-            if 'extra' not in tags:
-                tags += 'extra',
-            self.load_extra_section(title, content, tags)
+            self.load_section(*section)
 
         # Extra meta info
         if meta:
@@ -205,7 +201,6 @@ class Markio(Marked):
         norm_tags = tuple(tag for tag in tags if tag != 'extra')
         result = super().load_section(title, content, tags)
         self.extra[(title,) + norm_tags] = content
-        print(title, norm_tags)
         return result
 
     def add_placeholder(self, source, language=None):
@@ -214,7 +209,7 @@ class Markio(Marked):
         """
 
         if language:
-            self.sections['Placeholder', language] = source
+            self.sections['Placeholder', (language,)] = source
         else:
             self.sections['Placeholder'] = source
 
