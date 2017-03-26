@@ -176,7 +176,7 @@ def test_placeholder_behaves_like_a_dict(markio_0, markio_4):
     assert dict(markio_0.placeholder) == {}
     assert dict(markio_4.placeholder) == {
         None: 'Generic comment',
-        'ruby': 'Use the `puts text` command'
+        'ruby': '# Use the `puts text` command'
     }
     assert len(markio_4.placeholder) == 2
 

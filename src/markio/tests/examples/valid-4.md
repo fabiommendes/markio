@@ -47,4 +47,4 @@ Placeholder
 Placeholder (ruby)
 ------------------
 
-    Use the `puts text` command
+    # Use the `puts text` command

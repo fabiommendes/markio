@@ -138,14 +138,15 @@ def markio_test(args):
         iospec.expand_inputs(args.expansions)
     results = ejudge.run(source, iospec, lang=lang)
 
-    if results.has_errors:
+    if results.has_error_test_case:
         for case, expected in zip(results, iospec):
-            if case.is_error:
-                print('Error executing testcase\n', file=sys.stderr)
-                print(indent(expected.source(), 4), file=sys.stderr)
-                print('\nMessage\n', file=sys.stderr)
-                print(indent(case.get_error_message(), 4), file=sys.stderr)
-                sys.exit()
+            if case.is_error_test_case:
+                sys.exit(
+                    'Error executing testcase\n' +
+                    indent(expected.source(), 4) +
+                    '\nMessage\n' +
+                    indent(case.get_error_message(), 4)
+                )
 
     if args.silent:
         print('Expanded to %s test cases' % len(results))
@@ -154,7 +155,7 @@ def markio_test(args):
             print('Test case %s:' % idx)
             print(indent(case.source(), 4))
             print()
-        print('All tests cases were successful!')
+        print('All test cases ran successfully!')
 
 
 def main(args=None):
