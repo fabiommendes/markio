@@ -71,6 +71,7 @@ def test_markio_cmd_shows_source_for_first_language():
 
 
 def test_markio_run_works():
+    os.environ['MARKIO_SANDBOX'] = 'false'
     path = os.path.join(DIRECTORY, 'hello-world.md')
     with capture_print() as value:
         with mock.patch('sys.exit', fake_exit):
@@ -80,6 +81,7 @@ def test_markio_run_works():
 
 
 def test_markio_test_works():
+    os.environ['MARKIO_SANDBOX'] = 'false'
     path = os.path.join(DIRECTORY, 'hello-world.md')
     with capture_print() as value:
         with mock.patch('sys.exit', fake_exit):
@@ -92,6 +94,7 @@ def test_markio_test_works():
 
 
 def test_reading_invalid_markio():
+    os.environ['MARKIO_SANDBOX'] = 'false'
     path = os.path.join(DIRECTORY, 'invalid-0.md')
     with capture_print() as value:
         try:
@@ -105,6 +108,7 @@ def test_reading_invalid_markio():
 
 def test_testing_invalid_code():
     path = os.path.join(DIRECTORY, 'invalid-1.md')
+    os.environ['MARKIO_SANDBOX'] = 'false'
     with capture_print() as value:
         try:
             with mock.patch('sys.exit', fake_exit):

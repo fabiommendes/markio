@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import sys
 
@@ -38,7 +39,7 @@ def make_parser():
 
     # "markio test" sub-command
     parser_test = subparsers.add_parser('test',
-                                       help='check tests consistency')
+                                        help='check tests consistency')
     add_params(parser_test, input=True, debug=True, lang=True)
     parser_test.add_argument(
         '--silent', '-s',
@@ -103,12 +104,16 @@ def markio_extract_source(args):
         return md, source, lang
 
 
-def markio_run(args):
+def markio_run(args, sandbox=None):
     """
     `markio run <file>` command.
     """
 
     import ejudge
+
+    if sandbox is None:
+        sandbox = os.environ.get('MARKIO_SANDBOX', 'true') == 'true'
+
     _, source, lang = markio_extract_source(args)
     ejudge.exec(source, lang=lang)
 
@@ -126,17 +131,21 @@ def markio_src(args):
         print(source)
 
 
-def markio_test(args):
+def markio_test(args, sandbox=None):
     """
     `markio test <file>` command.
     """
 
     import ejudge
+
+    if sandbox is None:
+        sandbox = os.environ.get('MARKIO_SANDBOX', 'true') == 'true'
+
     md, source, lang = markio_extract_source(args)
     iospec = md.tests
     if args.expansions is not None:
         iospec.expand_inputs(args.expansions)
-    results = ejudge.run(source, iospec, lang=lang)
+    results = ejudge.run(source, iospec, lang=lang, sandbox=sandbox)
 
     if results.has_error_test_case:
         for case, expected in zip(results, iospec):
@@ -167,6 +176,7 @@ def main(args=None):
         sys.exit('Please select a command. Type `markio -h` for help.')
     else:
         func(args)
+
 
 parser = make_parser()
 
